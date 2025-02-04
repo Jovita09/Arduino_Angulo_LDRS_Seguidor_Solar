@@ -1,0 +1,63 @@
+// Pines de control para el actuador lineal (movimiento vertical)
+int actuadorAdelante = 18; // Pin para mover el actuador hacia adelante
+int actuadorAtras = 19;    // Pin para mover el actuador hacia atrás
+int posicionActuador = 0;  // Variable para la posición simulada del actuador
+
+// Pines ADC para los LDR en la ESP32
+int ldrtopl = 34;  // LDR superior izquierdo (canal ADC1)
+int ldrtopr = 35;  // LDR superior derecho (canal ADC1)
+
+int sensorValue = 0;
+int outputValue = 0;
+
+void setup() {
+  // Configurar los pines de los actuadores como salida
+  pinMode(actuadorAdelante, OUTPUT);
+  pinMode(actuadorAtras, OUTPUT);
+  pinMode(25, INPUT);  // Pin para el potenciómetro
+
+  // Inicializar comunicación serial
+  Serial.begin(115200); // Asegúrate de que el Serial Plotter esté configurado a esta velocidad
+}
+
+void loop() {
+  // Leer el valor del potenciómetro (0-4095)
+  sensorValue = analogRead(25);
+
+  // Leer los valores de los LDRs (estos valores varían según la intensidad de luz)
+  int topl = analogRead(ldrtopl);  // LDR superior izquierdo
+  int topr = analogRead(ldrtopr);  // LDR superior derecho
+
+  // Mapear el valor del potenciómetro a un ángulo de 0 a 180 grados
+  outputValue = map(sensorValue, 0, 4095, 0, 180);
+
+  // Invertir los valores de los LDRs (de modo que los valores altos correspondan a más luz)
+  int maxADC = 4095; // El valor máximo para el ADC del ESP32
+  topl = maxADC - topl;
+  topr = maxADC - topr;
+
+  // Enviar los datos al puerto serial en formato CSV
+  // El formato será: ángulo, LDR izquierdo, LDR derecho
+  Serial.print(outputValue);  // Enviar el ángulo
+  Serial.print(",");          // Separador
+  Serial.print(topl);         // LDR izquierdo
+  Serial.print(",");          // Separador
+  Serial.println(topr);       // LDR derecho
+
+  // Control del actuador lineal basado en los LDRs
+  if (topl > topr) {
+    // Si la luz está más fuerte en la parte superior, mover el actuador hacia arriba
+    digitalWrite(actuadorAdelante, HIGH);
+    digitalWrite(actuadorAtras, LOW);
+  } else if (topr > topl) {
+    // Si la luz está más fuerte en la parte inferior, mover el actuador hacia abajo
+    digitalWrite(actuadorAdelante, LOW);
+    digitalWrite(actuadorAtras, HIGH);
+  } else {
+    // Detener el actuador si no hay diferencia significativa de luz
+    digitalWrite(actuadorAdelante, LOW);
+    digitalWrite(actuadorAtras, LOW);
+  }
+
+  delay(100); // Pausa para estabilizar y evitar saturar el serial
+}
